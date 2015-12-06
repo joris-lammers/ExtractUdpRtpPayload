@@ -1,5 +1,5 @@
 # ExtractUdpRtpPayload
-[![Build Status](https://travis-ci.org/joris-lammers/ppsnr.svg)](https://travis-ci.org/joris-lammers/ExtractUdpRtpPayload)
+[![Build Status](https://travis-ci.org/joris-lammers/ExtractUdpRtpPayload.svg?branch=master)](https://travis-ci.org/joris-lammers/ExtractUdpRtpPayload)
 
 Mainly used for extracting MPEG Transport Stream from pcap file (TS usually 
 transmitted over UDP or RTP) but can also be used to extract UDP payload of any
