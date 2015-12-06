@@ -1,7 +1,9 @@
 language: go
 
-before_install:
-  - sudo apt-get install -y libpcap-dev
+addons:
+  apt:
+    packages:
+    - libpcap-dev
 
 go:
   - tip
