@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/miekg/pcap"
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
+	"github.com/google/gopacket/pcapgo"
 )
 
 var flagInFile string
@@ -23,35 +25,41 @@ func init() {
 func main() {
 	flag.Parse()
 	Destinations := make(map[string]*os.File)
-	fmt.Println(os.Args)
-	h, _ := pcap.OpenOffline(flagInFile)
-
-	for pkt := h.Next(); pkt != nil; pkt = h.Next() {
-		pkt.Decode()
-		if len(pkt.Headers) >= 2 {
-			ipH, ipOK := pkt.Headers[0].(*pcap.Iphdr)
-			udpH, udpOK := pkt.Headers[1].(*pcap.Udphdr)
-			if ipOK && udpOK {
-				dumpFileName := fmt.Sprintf("Dump_%d.%d.%d.%d_%d.ts", ipH.DestIp[0],
-					ipH.DestIp[1],
-					ipH.DestIp[2],
-					ipH.DestIp[3],
-					udpH.DestPort)
-				f, ok := Destinations[dumpFileName]
-				if !ok {
-					fmt.Println("Creating new TS file", dumpFileName)
-					Destinations[dumpFileName], _ = os.Create(dumpFileName)
-					f, _ = Destinations[dumpFileName]
-				}
-				offset := 0
-				if flagRTP {
-					offset = 12
-				}
-
-				f.Write(pkt.Payload[offset:])
+	f, err := os.Open(flagInFile)
+	if err != nil {
+		fmt.Printf("Error opening file '%s': %s\n", flagInFile, err)
+		return
+	}
+	r, err := pcapgo.NewReader(f)
+	if err != nil {
+		fmt.Printf("Error creating pcap reader: %s\n", err)
+		return
+	}
+	for data, _, err := r.ReadPacketData(); err == nil; data, _, err = r.ReadPacketData() {
+		packet := gopacket.NewPacket(data, layers.LayerTypeEthernet, gopacket.Default)
+		if udpLayer := packet.Layer(layers.LayerTypeUDP); udpLayer != nil {
+			ipLayer := packet.Layer(layers.LayerTypeIPv4)
+			ip := ipLayer.(*layers.IPv4)
+			udp := udpLayer.(*layers.UDP)
+			dumpFileName := fmt.Sprintf("Dump_%d.%d.%d.%d_%d.ts", ip.DstIP[0],
+				ip.DstIP[1],
+				ip.DstIP[2],
+				ip.DstIP[3],
+				udp.DstPort)
+			of, ok := Destinations[dumpFileName]
+			if !ok {
+				fmt.Println("Creating new TS file", dumpFileName)
+				Destinations[dumpFileName], _ = os.Create(dumpFileName)
+				of, _ = Destinations[dumpFileName]
 			}
+			offset := 0
+			if flagRTP {
+				offset = 12
+			}
+			of.Write(packet.ApplicationLayer().Payload()[offset:])
 		}
 	}
+
 	for _, fileHandle := range Destinations {
 		fileHandle.Close()
 	}
